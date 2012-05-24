@@ -12,6 +12,8 @@ use PDO;
 use PDOStatement;
 use PDOException;
 use lithium\data\model\QueryException;
+use lithium\core\NetworkException;
+use lithium\core\ConfigException;
 
 /**
  * Extends the `Database` class to implement the necessary SQL-formatting and resultset-fetching
@@ -140,7 +142,21 @@ class MySql extends \lithium\data\source\Database {
 			list($host, $port) = explode(':', $host) + array(1 => "3306");
 			$dsn = sprintf("mysql:host=%s;port=%s;dbname=%s", $host, $port, $config['database']);
 			$this->connection = new PDO($dsn, $config['login'], $config['password'], $options);
-		} catch (PDOException $e) {
+        } catch (PDOException $e) {
+            $code    = $e->getCode();
+
+            $configCodes = array(2002, 2003, 2005, 2009); //Wrong host, unknown host, etc
+            switch (true) {
+            case in_array($code, $configCodes):
+                throw new ConfigException($e->getMessage());
+                break;
+            case $code >= 2000:
+                throw new NetworkException($e->getMessage());
+                break;
+            default:
+                throw new ConfigException($e->getMessage());
+                break;
+            }
 			return false;
 		}
 		$this->_isConnected = true;
